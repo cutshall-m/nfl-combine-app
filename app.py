@@ -10,8 +10,7 @@ st.set_page_config(page_title="NFL Combine Reference", layout="wide")
 @st.cache_resource
 def get_db_engine():
     """
-    Update 2: Switched to SQLAlchemy for Pandas compatibility. 
-    This creates an engine once and caches it to prevent reconnecting 
+    Using SQLAlchemy to create an engine once and caches it to prevent reconnecting 
     every time a UI element changes.
     """
     try:
@@ -28,10 +27,10 @@ def get_db_engine():
 
 engine = get_db_engine()
 
-# Update 1: Implement Data Caching for global properties
+# Data Caching for global properties
 @st.cache_data(ttl=3600)
 def get_draft_year_bounds():
-    query = "SELECT MIN(draft_year) AS min_yr, MAX(draft_year) AS max_yr FROM draft_result;"
+    query = "SELECT MIn(draft_year) AS min_yr, MAX(draft_year)  AS max_yr FROM draft_result;"
     df = pd.read_sql(query, engine)
     
     # Handle possible empty result
@@ -43,56 +42,6 @@ def get_draft_year_bounds():
 min_yr, max_yr = get_draft_year_bounds()
 
 
-# -------------------------------------------------------------
-# CUSTOM CSS: Sidebar Navigation Menu Styling
-# -------------------------------------------------------------
-st.markdown(
-    """
-    <style>
-    /* Hide radio button circles and icons */
-    div[data-testid="stRadio"] label > div:first-of-type:not(:last-child),
-    div[data-testid="stRadio"] label svg {
-        display: none !important;
-    }
-    
-    /* Remove default spacing between radio options */
-    div[role="radiogroup"] {
-        gap: 4px !important;
-    }
-    
-    /* Style the navigation text blocks */
-    div[data-testid="stRadio"] label {
-        padding: 12px 16px !important;
-        border-radius: 6px !important;
-        margin: 0px !important;
-        cursor: pointer !important;
-        transition: all 0.2s ease !important;
-        width: 100% !important;
-        box-sizing: border-box;
-    }
-
-    /* Light Blue hover effect */
-    div[data-testid="stRadio"] label:hover {
-        background-color: #E8F1F5 !important;
-    }
-    div[data-testid="stRadio"] label:hover div,
-    div[data-testid="stRadio"] label:hover p {
-        color: #1A365D !important;
-    }
-
-    /* Selected state: Medium Blue background with white text */
-    div[data-testid="stRadio"] label:has(input:checked) {
-        background-color: #2B6CB0 !important;
-    }
-    div[data-testid="stRadio"] label:has(input:checked) div,
-    div[data-testid="stRadio"] label:has(input:checked) p {
-        color: #FFFFFF !important;
-        font-weight: 600 !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 # -------------------------------------------------------------
 # VERTICAL NAVIGATION SIDEBAR
@@ -130,7 +79,7 @@ if selected_nav == "Welcome":
     with col_left:
         st.markdown("### **Welcome to the NFL Draft Combine Reference**")
         st.write(
-            f"This platform offers a comprehensive analytical workspace featuring"
+            f"This platform offers an analytical workspace featuring"
             f" historic scouting data, metric distributions, and outcome metrics"
             f" recorded across every official NFL Scouting Combine from **{min_yr}**"
             f" through **{max_yr}**."
@@ -163,7 +112,6 @@ if selected_nav == "Welcome":
     with col_right:
         st.write("")
         st.write("")
-        # Update 3: Portability of Asset Paths. Now using a relative path.
         logo_path = "assets/NFL_Scouting_Combine_logo.svg.webp"
         
         try:
@@ -188,16 +136,12 @@ elif selected_nav == "Draft Results by Year":
     # Cached function for retrieving year data
     @st.cache_data(ttl=3600)
     def get_draft_results_by_year(year):
-        query = text("""
-            SELECT d.draft_year, d.draft_round, d.draft_pick, d.drafting_team,
-                   p.first_name, p.last_name, p.position_abr, p.school,
-                   c.forty_yd_dash, c.vert_jump, c.bench_press, c.broad_jump, c.cone_drill, c.twenty_yd_dash
+        query = text("""SELECT  d.draft_year, d.draft_round, d.draft_pick, d.drafting_team, p.first_name, p.last_name, p.position_abr, p.school, c.forty_yd_dash, c.vert_jump, c.bench_press, c.broad_jump, c.cone_drill, c.twenty_yd_dash
             FROM draft_result d
-            JOIN player p ON d.player_id = p.player_id
-            LEFT JOIN combine_result c ON p.player_id = c.player_id
+            JOIN player p on d.player_id = p.player_id
+            LEFT JOIN combine_result c on p.player_id =  c.player_id
             WHERE d.draft_year = :year
-            ORDER BY d.draft_pick ASC;
-        """)
+            ORDER BY  d.draft_pick ASC;""")
         return pd.read_sql(query, engine, params={"year": year})
 
     df_year = get_draft_results_by_year(selected_year)
@@ -215,7 +159,7 @@ elif selected_nav == "Top Athletic Performers":
     @st.cache_data(ttl=3600)
     def get_all_positions():
         return pd.read_sql(
-            "SELECT DISTINCT Position_desc FROM fb_position WHERE Position_desc IS NOT NULL ORDER BY Position_desc;",
+            "SELECT DISTINCT Position_desc  FROM fb_position WHERE Position_desc IS NOT NULL ORDER By Position_desc;",
             engine
         )
 
@@ -241,18 +185,13 @@ elif selected_nav == "Top Athletic Performers":
     def get_top_performers(metric_col, sort_order, positions_tuple):
         # Format string for IN clause securely (whitelist from the multiselect)
         placeholders = ", ".join([f"'{p}'" for p in positions_tuple])
-        query = f"""
-            SELECT p.first_name, p.last_name, pos.Position_desc AS position,
-                   d.draft_year, d.draft_round, d.draft_pick, c.{metric_col}
+        query = f"""SELECT p.first_name, p.last_name, pos.Position_desc AS position, d.draft_year, d.draft_round, d.draft_pick, c.{metric_col}
             FROM combine_result c
-            JOIN player p ON c.player_id = p.player_id
+            JOIN player p On c.player_id = p.player_id
             LEFT JOIN fb_position pos ON p.position_abr = pos.position_abr
-            LEFT JOIN draft_result d ON p.player_id = d.player_id
-            WHERE c.{metric_col} IS NOT NULL 
-              AND pos.Position_desc IN ({placeholders})
-            ORDER BY c.{metric_col} {sort_order}
-            LIMIT 5;
-        """
+             LEFT JOIN draft_result d on p.player_id = d.player_id
+            WHERE c.{metric_col} IS NOT NULL AND pos.Position_desc IN ({placeholders})
+            ORDER BY c.{metric_col} {sort_order} LIMIT 5;"""
         return pd.read_sql(query, engine)
 
     if not selected_positions:
@@ -288,27 +227,22 @@ elif selected_nav == "Draft Volume by Conference & School":
 
     @st.cache_data(ttl=3600)
     def get_school_volume():
-        # Wrap the string in text() here
-        volume_query = text("""
-            SELECT 
-                CASE 
-                    WHEN conf.school_power IS NULL THEN 'FBS'
+        volume_query = text("""SELECT 
+                    CASE 
+                     WHEN conf.school_power IS NULL THEN 'FBS'
                     WHEN LOWER(conf.school_power) LIKE '%ncaa div iii%' THEN 'Division III'
                     WHEN LOWER(conf.school_power) LIKE '%ncaa div ii%' THEN 'Division II'
-                    WHEN LOWER(conf.school_power) LIKE '%fcs%' THEN 'FCS'
-                    WHEN LOWER(conf.school_power) LIKE '%naia%' OR LOWER(conf.school_power) LIKE '%defunct%' THEN 'Other'
-                    ELSE 'FBS'
-                END AS Division,
-                conf.school_power AS Conference,
-                p.school AS School,
+                    WHEN LOWER(conf.school_power) LIKE  '%fcs%' THEN 'FCS'
+                    WHEN LOWER(conf.school_power)  LIKE '%naia%' OR LOWER(conf.school_power) LIKE '%defunct%' THEN 'Other' ELSE 'FBS'
+                END as Division,
+                conf.school_power AS Conference, p.school AS School,
                 COUNT(d.draft_pick) AS Total_Players_Drafted,
                 COUNT(CASE WHEN d.draft_round = 1 THEN 1 END) AS First_Round_Players_Drafted
             FROM draft_result d
             JOIN player p ON d.player_id = p.player_id
-            LEFT JOIN conference conf ON p.school = conf.school
-            GROUP BY Division, conf.school_power, p.school
-            ORDER BY Total_Players_Drafted DESC, First_Round_Players_Drafted DESC;
-        """)
+            LEFT JOIN conference conf on p.school = conf.school
+             GROUP BY Division, conf.school_power, p.school
+             ORDER BY Total_Players_Drafted  DESC, First_Round_Players_Drafted  DESC;""")
         return pd.read_sql(volume_query, engine)
 
     df_all_volume = get_school_volume()
@@ -388,19 +322,16 @@ elif selected_nav == "NFL Team Drafting Tendencies":
 
     @st.cache_data(ttl=3600)
     def get_team_tendencies():
-        team_draft_query = """
-            SELECT 
-                d.drafting_team AS Team,
+        team_draft_query = """SELECT d.drafting_team AS Team,
                 pos.Position_desc AS Position_Desc,
-                p.school AS School,
+                p.school AS  School,
                 d.draft_round AS Draft_Round,
-                d.draft_pick AS Draft_Pick
+                d.draft_pick aS Draft_Pick
             FROM draft_result d
             JOIN player p ON d.player_id = p.player_id
             LEFT JOIN fb_position pos ON p.position_abr = pos.position_abr
             WHERE d.drafting_team IS NOT NULL AND d.drafting_team != ''
-            ORDER BY d.drafting_team ASC;
-        """
+            ORDER BY d.drafting_team ASC;"""
         return pd.read_sql(team_draft_query, engine)
 
     raw_team_df = get_team_tendencies()
@@ -461,7 +392,7 @@ elif selected_nav == "Personalized Draft Predictor":
     @st.cache_data(ttl=3600)
     def get_predictor_positions():
         return pd.read_sql(
-            "SELECT position_abr, Position_desc FROM fb_position ORDER BY Position_desc;",
+               "SELECT position_abr, Position_desc FROM fb_position ORDER BY Position_desc;",
             engine
         )
 
@@ -488,12 +419,7 @@ elif selected_nav == "Personalized Draft Predictor":
 
         @st.cache_data(ttl=3600)
         def get_model_weights(pos):
-            query = text("""
-                SELECT position_abr, Intercept, Weight_40yd_Dash, Weight_Vertical_Jump, 
-                       Weight_Bench_Press, Weight_Broad_Jump, Weight_3Cone_Drill, Weight_20yd_Shuttle
-                FROM attribute_coefficients 
-                WHERE position_abr = :pos;
-            """)
+            query = text("""SELECT position_abr, Intercept, Weight_40yd_Dash, Weight_Vertical_Jump, Weight_Bench_Press, Weight_Broad_Jump, Weight_3Cone_Drill, Weight_20yd_Shuttle FROM attribute_coefficients  WHERE position_abr = :pos;""")
             df = pd.read_sql(query, engine, params={"pos": pos})
             
             # Fallback for Safeties
@@ -515,18 +441,16 @@ elif selected_nav == "Personalized Draft Predictor":
         @st.cache_data(ttl=3600)
         def get_position_ranges(pos):
             pos_tuple = ("S", "SAF") if pos in ["S", "SAF"] else (pos, pos)
-            query = text("""
-                SELECT 
-                    MIN(c.forty_yd_dash) AS min_40, MAX(c.forty_yd_dash) AS max_40,
-                    MIN(c.vert_jump) AS min_vert, MAX(c.vert_jump) AS max_vert,
+            query = text("""SELECT 
+                     MIN(c.forty_yd_dash) AS min_40, MAX(c.forty_yd_dash) AS max_40,
+                    MIN(c.vert_jump) AS min_vert, MAX(c.vert_jump) As max_vert,
                     MIN(c.bench_press) AS min_bench, MAX(c.bench_press) AS max_bench,
                     MIN(c.broad_jump) AS min_broad, MAX(c.broad_jump) AS max_broad,
-                    MIN(c.cone_drill) AS min_cone, MAX(c.cone_drill) AS max_cone,
+                    MIN(c.cone_drill) as min_cone, MAX(c.cone_drill)  AS max_cone,
                     MIN(c.twenty_yd_dash) AS min_shuttle, MAX(c.twenty_yd_dash) AS max_shuttle
                 FROM combine_result c
-                JOIN player p ON c.player_id = p.player_id
-                WHERE p.position_abr IN (:pos1, :pos2);
-            """)
+                 JOIN player p on c.player_id = p.player_id
+                 WHERE p.position_abr IN (:pos1, :pos2);""")
             df = pd.read_sql(query, engine, params={"pos1": pos_tuple[0], "pos2": pos_tuple[1]})
             return df.iloc[0].to_dict()
 
@@ -640,7 +564,7 @@ elif selected_nav == "Personalized Draft Predictor":
 
             if predicted_round in [1, 2]:
                 st.success(
-                    f"**Above Average Performance!** Excellent work, **{display_name}**!"
+                    f"**Great Performance!** Excellent work, **{display_name}**!"
                     " Your combine measurements project you as a high-value prospect"
                     f" going in **Round {predicted_round} (Pick #{predicted_pick})**."
                     " Keep up the great athletic training!"
