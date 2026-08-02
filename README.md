@@ -1,3 +1,5 @@
+#Site link: https://nfl-combine.streamlit.app/
+
 # 🏈 NFL Combine Performance & Impact on Draft Position
 
 An interactive data application that explores how college athletes' NFL Combine drill performances impact their NFL Draft outcomes. Built with Python, MySQL, and Streamlit, this project models draft projections using linear regression weights and provides historical draft and combine query capabilities.
